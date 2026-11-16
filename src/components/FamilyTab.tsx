@@ -12,7 +12,12 @@ import {
 import { LANGUAGES } from '../data/languages';
 import { CURATED_PHRASES } from '../data/phrases';
 import type { FamilyProfile, ThaiPoliteForm } from '../types';
-import { isSupabaseConfigured, supabase } from '../utils/supabase';
+import {
+  isFirebaseConfigured,
+  signInHousehold,
+  signOutHousehold,
+  signUpHousehold,
+} from '../utils/firebase';
 
 interface FamilyTabProps {
   profiles: FamilyProfile[];
@@ -107,7 +112,7 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
+    if (!isFirebaseConfigured) return;
     if (!email.trim() || password.length < 6) {
       onToast('Enter a valid email and password (6+ characters).');
       return;
@@ -116,18 +121,10 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
     setAuthBusy(true);
     try {
       if (authMode === 'signup') {
-        const { error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-        });
-        if (error) throw error;
-        onToast('Household account created! Check your email if confirmation is enabled.');
+        await signUpHousehold(email.trim(), password);
+        onToast('Household account created and synced!');
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-        if (error) throw error;
+        await signInHousehold(email.trim(), password);
         onToast('Signed into Household Cloud Sync!');
       }
       setPassword('');
@@ -139,8 +136,7 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
   };
 
   const handleSignOut = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    await signOutHousehold();
     onToast('Signed out. Local profiles remain on this device.');
   };
 
@@ -177,11 +173,11 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
           )}
         </div>
 
-        {!isSupabaseConfigured ? (
+        {!isFirebaseConfigured ? (
           <p className="section-desc" style={{ fontSize: 12.5 }}>
             Currently saving locally on this phone. To sync across family phones, add your{' '}
-            <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to GitHub repository variables and run{' '}
-            <code>supabase/schema.sql</code>.
+            <code>VITE_FIREBASE_*</code> config to GitHub repository variables and publish{' '}
+            <code>firebase/firestore.rules</code>.
           </p>
         ) : householdEmail ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

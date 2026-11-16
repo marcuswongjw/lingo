@@ -25,10 +25,10 @@ import {
 } from './utils/storage';
 import {
   fetchHouseholdMembers,
-  isSupabaseConfigured,
-  supabase,
+  isFirebaseConfigured,
+  subscribeAuth,
   upsertHouseholdMember,
-} from './utils/supabase';
+} from './utils/firebase';
 
 type TabId = 'connect' | 'intro' | 'practice' | 'family';
 
@@ -73,29 +73,17 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isFirebaseConfigured) return;
 
-    supabase.auth.getSession().then(({ data }) => {
-      const user = data.session?.user ?? null;
-      setHouseholdUserId(user?.id ?? null);
+    const unsubscribe = subscribeAuth((user) => {
+      setHouseholdUserId(user?.uid ?? null);
       setHouseholdEmail(user?.email ?? null);
       if (user) {
-        void syncWithCloud(user.id);
+        void syncWithCloud(user.uid);
       }
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user ?? null;
-      setHouseholdUserId(user?.id ?? null);
-      setHouseholdEmail(user?.email ?? null);
-      if (user) {
-        void syncWithCloud(user.id);
-      }
-    });
-
-    return () => {
-      sub.subscription.unsubscribe();
-    };
+    return () => unsubscribe();
   }, [syncWithCloud]);
 
   useEffect(() => {
