@@ -1,17 +1,40 @@
 import React, { useState } from 'react';
-import { Check, Plus, Trash2, Volume2 } from 'lucide-react';
+import {
+  Check,
+  Cloud,
+  Lock,
+  LogOut,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Volume2,
+} from 'lucide-react';
 import { LANGUAGES } from '../data/languages';
 import { CURATED_PHRASES } from '../data/phrases';
 import type { FamilyProfile, ThaiPoliteForm } from '../types';
+import { isSupabaseConfigured, supabase } from '../utils/supabase';
 
 interface FamilyTabProps {
   profiles: FamilyProfile[];
   activeProfile: FamilyProfile;
   speakingId: string | null;
+  householdEmail: string | null;
+  isSyncing: boolean;
+  onSyncNow: () => void;
   onSelectProfile: (profileId: string) => void;
-  onAddProfile: (name: string, emoji: string, thaiPoliteForm: ThaiPoliteForm) => void;
-  onSpeak: (id: string, text: string, langOverride?: FamilyProfile['activeLanguage']) => void;
+  onAddProfile: (
+    name: string,
+    emoji: string,
+    thaiPoliteForm: ThaiPoliteForm,
+    pin?: string
+  ) => void;
+  onSpeak: (
+    id: string,
+    text: string,
+    langOverride?: FamilyProfile['activeLanguage']
+  ) => void;
   onRemoveCustomPhrase: (phraseId: string) => void;
+  onToast: (msg: string) => void;
 }
 
 const AVATAR_CHOICES = ['🧭', '🌸', '🌞', '🐼', '🦁', '🌿'];
@@ -20,22 +43,105 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
   profiles,
   activeProfile,
   speakingId,
+  householdEmail,
+  isSyncing,
+  onSyncNow,
   onSelectProfile,
   onAddProfile,
   onSpeak,
   onRemoveCustomPhrase,
+  onToast,
 }) => {
   const [newName, setNewName] = useState('');
   const [newEmoji, setNewEmoji] = useState('🌿');
   const [newPolite, setNewPolite] = useState<ThaiPoliteForm>('khrap');
+  const [newPin, setNewPin] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+
+  // PIN unlock state when switching to a PIN-protected member
+  const [pendingProfile, setPendingProfile] = useState<FamilyProfile | null>(null);
+  const [pinAttempt, setPinAttempt] = useState('');
+
+  // Household Auth form state
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    onAddProfile(newName.trim(), newEmoji, newPolite);
+    const cleanedPin = newPin.replace(/\D/g, '').slice(0, 4);
+    if (newPin && cleanedPin.length !== 4) {
+      onToast('PIN must be 4 digits (or leave blank).');
+      return;
+    }
+    onAddProfile(newName.trim(), newEmoji, newPolite, cleanedPin || undefined);
     setNewName('');
+    setNewPin('');
     setShowAddForm(false);
+  };
+
+  const handleProfileTap = (profile: FamilyProfile) => {
+    if (profile.id === activeProfile.id) return;
+    if (profile.pin) {
+      setPendingProfile(profile);
+      setPinAttempt('');
+    } else {
+      onSelectProfile(profile.id);
+    }
+  };
+
+  const handleVerifyPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingProfile) return;
+    if (pinAttempt === pendingProfile.pin) {
+      onSelectProfile(pendingProfile.id);
+      setPendingProfile(null);
+      setPinAttempt('');
+    } else {
+      onToast('Incorrect 4-digit PIN.');
+      setPinAttempt('');
+    }
+  };
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+    if (!email.trim() || password.length < 6) {
+      onToast('Enter a valid email and password (6+ characters).');
+      return;
+    }
+
+    setAuthBusy(true);
+    try {
+      if (authMode === 'signup') {
+        const { error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+        onToast('Household account created! Check your email if confirmation is enabled.');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+        onToast('Signed into Household Cloud Sync!');
+      }
+      setPassword('');
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Authentication failed.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    onToast('Signed out. Local profiles remain on this device.');
   };
 
   return (
@@ -43,10 +149,172 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
       <div className="section-header">
         <h1 className="section-title">Family Profiles</h1>
         <p className="section-desc">
-          Switch learners on this device — each person keeps their own practiced phrases and Thai polite ending.
+          Switch learners on this device or sign into your Household account to sync across every family phone.
         </p>
       </div>
 
+      {/* Household Cloud Sync Card */}
+      <div className="builder-card">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
+          <span
+            className="slot-label"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Cloud size={14} color="var(--accent-primary)" />
+            Household Cloud Sync
+          </span>
+          {householdEmail && (
+            <span className="phrase-badge" style={{ background: 'var(--accent-sage-soft)', color: 'var(--accent-sage)' }}>
+              Connected
+            </span>
+          )}
+        </div>
+
+        {!isSupabaseConfigured ? (
+          <p className="section-desc" style={{ fontSize: 12.5 }}>
+            Currently saving locally on this phone. To sync across family phones, add your{' '}
+            <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to GitHub repository variables and run{' '}
+            <code>supabase/schema.sql</code>.
+          </p>
+        ) : householdEmail ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p className="section-desc" style={{ fontSize: 13 }}>
+              Signed in as <strong>{householdEmail}</strong>. All family member progress syncs automatically.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className="slot-pill"
+                style={{
+                  flex: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+                onClick={onSyncNow}
+                disabled={isSyncing}
+              >
+                <RefreshCw size={13} />
+                {isSyncing ? 'Syncing...' : 'Sync Now'}
+              </button>
+              <button
+                type="button"
+                className="slot-pill"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+                onClick={handleSignOut}
+              >
+                <LogOut size={13} />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form
+            onSubmit={handleAuthSubmit}
+            style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+          >
+            <div className="segmented-control" style={{ alignSelf: 'flex-start' }}>
+              <button
+                type="button"
+                className={`seg-btn ${authMode === 'signin' ? 'active' : ''}`}
+                onClick={() => setAuthMode('signin')}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                className={`seg-btn ${authMode === 'signup' ? 'active' : ''}`}
+                onClick={() => setAuthMode('signup')}
+              >
+                Create Household
+              </button>
+            </div>
+
+            <input
+              type="email"
+              className="slot-input"
+              placeholder="Parent / Household email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <input
+              type="password"
+              className="slot-input"
+              placeholder="Password (min 6 characters)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button
+              type="submit"
+              className="primary-listen-btn"
+              style={{ height: 42 }}
+              disabled={authBusy}
+            >
+              {authBusy
+                ? 'Please wait...'
+                : authMode === 'signin'
+                ? 'Sign In & Sync Family'
+                : 'Create Household Account'}
+            </button>
+          </form>
+        )}
+      </div>
+
+      {/* PIN Unlock Prompt */}
+      {pendingProfile && (
+        <form onSubmit={handleVerifyPin} className="intro-output-card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Lock size={16} color="var(--accent-primary)" />
+            <strong style={{ fontSize: 14 }}>
+              Enter 4-digit PIN for {pendingProfile.name}
+            </strong>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              className="slot-input"
+              style={{ flex: 1, letterSpacing: '0.3em', textAlign: 'center' }}
+              placeholder="••••"
+              value={pinAttempt}
+              onChange={(e) => setPinAttempt(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="dynamic-submit-btn"
+              style={{ background: 'var(--accent-primary)' }}
+            >
+              Unlock
+            </button>
+            <button
+              type="button"
+              className="slot-pill"
+              onClick={() => setPendingProfile(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Family Member Cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {profiles.map((p) => {
           const isActive = p.id === activeProfile.id;
@@ -55,7 +323,7 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
               key={p.id}
               type="button"
               className={`family-card ${isActive ? 'active' : ''}`}
-              onClick={() => onSelectProfile(p.id)}
+              onClick={() => handleProfileTap(p)}
               style={{ textAlign: 'left', width: '100%' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -63,8 +331,17 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
                   {p.avatarEmoji}
                 </span>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 15 }}>
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      fontSize: 15,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
                     {p.name}
+                    {p.pin && <Lock size={12} color="var(--ink-muted)" />}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-muted)' }}>
                     {p.learnedPhraseIds.length} phrases practiced · Thai:{' '}
@@ -144,6 +421,24 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
                 ค่ะ kha (F)
               </button>
             </div>
+          </div>
+
+          <div className="slot-group">
+            <label htmlFor="new-member-pin" className="slot-label">
+              Optional 4-Digit PIN
+            </label>
+            <input
+              id="new-member-pin"
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              className="slot-input"
+              placeholder="Leave blank for no PIN"
+              value={newPin}
+              onChange={(e) =>
+                setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))
+              }
+            />
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>

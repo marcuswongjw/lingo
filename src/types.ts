@@ -63,6 +63,7 @@ export interface FamilyProfile {
   id: string;
   name: string;
   avatarEmoji: string;
+  pin?: string;
   thaiPoliteForm: ThaiPoliteForm;
   activeLanguage: LanguageCode;
   learnedPhraseIds: string[];

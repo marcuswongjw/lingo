@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Gauge,
   MessageCircleHeart,
@@ -23,6 +23,12 @@ import {
   saveAppState,
   type StoredAppState,
 } from './utils/storage';
+import {
+  fetchHouseholdMembers,
+  isSupabaseConfigured,
+  supabase,
+  upsertHouseholdMember,
+} from './utils/supabase';
 
 type TabId = 'connect' | 'intro' | 'practice' | 'family';
 
@@ -31,10 +37,66 @@ export function App() {
   const [activeTab, setActiveTab] = useState<TabId>('connect');
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [householdUserId, setHouseholdUserId] = useState<string | null>(null);
+  const [householdEmail, setHouseholdEmail] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     warmupVoices();
   }, []);
+
+  const syncWithCloud = useCallback(async (userId: string) => {
+    setIsSyncing(true);
+    try {
+      const remoteProfiles = await fetchHouseholdMembers(userId);
+      if (remoteProfiles.length > 0) {
+        setAppState((prev) => ({
+          ...prev,
+          profiles: remoteProfiles,
+          activeProfileId: remoteProfiles.some(
+            (p) => p.id === prev.activeProfileId
+          )
+            ? prev.activeProfileId
+            : remoteProfiles[0].id,
+        }));
+      } else {
+        const local = loadAppState();
+        await Promise.all(
+          local.profiles.map((p) => upsertHouseholdMember(userId, p))
+        );
+      }
+    } catch {
+      setToastMsg('Could not sync with cloud right now.');
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user ?? null;
+      setHouseholdUserId(user?.id ?? null);
+      setHouseholdEmail(user?.email ?? null);
+      if (user) {
+        void syncWithCloud(user.id);
+      }
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null;
+      setHouseholdUserId(user?.id ?? null);
+      setHouseholdEmail(user?.email ?? null);
+      if (user) {
+        void syncWithCloud(user.id);
+      }
+    });
+
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, [syncWithCloud]);
 
   useEffect(() => {
     saveAppState(appState);
@@ -58,12 +120,20 @@ export function App() {
   const updateActiveProfile = (
     updater: (profile: FamilyProfile) => FamilyProfile
   ) => {
-    setAppState((prev) => ({
-      ...prev,
-      profiles: prev.profiles.map((p) =>
-        p.id === activeProfile.id ? updater(p) : p
-      ),
-    }));
+    setAppState((prev) => {
+      const updatedProfiles = prev.profiles.map((p) => {
+        if (p.id !== activeProfile.id) return p;
+        const nextProfile = updater(p);
+        if (householdUserId) {
+          void upsertHouseholdMember(householdUserId, nextProfile);
+        }
+        return nextProfile;
+      });
+      return {
+        ...prev,
+        profiles: updatedProfiles,
+      };
+    });
   };
 
   const handleSelectLanguage = (lang: LanguageCode) => {
@@ -160,13 +230,15 @@ export function App() {
   const handleAddProfile = (
     name: string,
     avatarEmoji: string,
-    thaiPoliteForm: ThaiPoliteForm
+    thaiPoliteForm: ThaiPoliteForm,
+    pin?: string
   ) => {
     const newId = `profile-${Date.now()}`;
     const newProfile: FamilyProfile = {
       id: newId,
       name,
       avatarEmoji,
+      pin,
       thaiPoliteForm,
       activeLanguage,
       learnedPhraseIds: [],
@@ -184,6 +256,9 @@ export function App() {
       activeProfileId: newId,
       profiles: [...prev.profiles, newProfile],
     }));
+    if (householdUserId) {
+      void upsertHouseholdMember(householdUserId, newProfile);
+    }
     setToastMsg(`Welcome, ${name}!`);
   };
 
@@ -285,12 +360,18 @@ export function App() {
               profiles={appState.profiles}
               activeProfile={activeProfile}
               speakingId={speakingId}
+              householdEmail={householdEmail}
+              isSyncing={isSyncing}
+              onSyncNow={() => {
+                if (householdUserId) void syncWithCloud(householdUserId);
+              }}
               onSelectProfile={(id) =>
                 setAppState((prev) => ({ ...prev, activeProfileId: id }))
               }
               onAddProfile={handleAddProfile}
               onSpeak={handleSpeak}
               onRemoveCustomPhrase={handleRemoveCustomPhrase}
+              onToast={setToastMsg}
             />
           )}
         </main>
