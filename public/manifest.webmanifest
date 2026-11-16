@@ -1,0 +1,10 @@
+{
+  "name": "Lingo — Family Language Companion",
+  "short_name": "Lingo",
+  "description": "Quickly learn warm social introductions and everyday connection in Thai, Indonesian, Italian, and Spanish.",
+  "start_url": "/lingo/",
+  "display": "standalone",
+  "background_color": "#FAF8F5",
+  "theme_color": "#C85A32",
+  "orientation": "portrait"
+}
