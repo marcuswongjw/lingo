@@ -32,9 +32,27 @@ export const SITUATION_PRESETS: SituationPreset[] = [
     label: 'Asking for a Family Photo',
     query: 'Politely asking someone to take a photo of our family',
   },
+  {
+    id: 'directions',
+    label: 'Directions & Toilet',
+    query: 'Politely asking for directions to the station or bathroom',
+  },
+  {
+    id: 'health',
+    label: 'Pharmacy & Kid Health',
+    query: 'Asking at a pharmacy for medicine or help for our family',
+  },
 ];
 
-type IntentKey = 'taxi' | 'host' | 'food' | 'market' | 'photo' | 'general';
+type IntentKey =
+  | 'taxi'
+  | 'host'
+  | 'food'
+  | 'market'
+  | 'photo'
+  | 'directions'
+  | 'health'
+  | 'general';
 
 function detectIntent(query: string): IntentKey {
   const q = query.toLowerCase();
@@ -44,6 +62,10 @@ function detectIntent(query: string): IntentKey {
     return 'food';
   if (/(market|shop|buy|vendor|store|price|souvenir)/.test(q)) return 'market';
   if (/(photo|picture|camera|selfie)/.test(q)) return 'photo';
+  if (/(direction|where|station|train|bus|toilet|bathroom|restroom|way|map|far)/.test(q))
+    return 'directions';
+  if (/(pharmacy|doctor|sick|fever|medicine|help|hospital|hurt|allergy|health)/.test(q))
+    return 'health';
   return 'general';
 }
 
@@ -991,6 +1013,380 @@ export function generateDynamicSituation(
             english: 'Thank you so much, how kind!',
             native: '¡Muchas gracias, qué amable!',
             phonetic: 'MOO-chahs GRAH-syahs, keh ah-MAH-bleh!',
+          },
+        ],
+      },
+    },
+
+    directions: {
+      th: {
+        contextSummary: 'Politely asking for directions, transit, or the nearest restroom.',
+        phrases: [
+          {
+            id: 'dyn-dir-th-1',
+            english: 'Excuse me, where is the bathroom?',
+            native: `ขอโทษนะ${p} ห้องน้ำอยู่ทางไหน${p}`,
+            phonetic: `khor-thot na ${pp}, hong-naam yoo thaang nai ${pp}?`,
+            tip: '"Hong-naam" = bathroom. Very polite and clear.',
+          },
+          {
+            id: 'dyn-dir-th-2',
+            english: 'Is the train station far from here?',
+            native: `สถานีรถไฟไกลจากที่นี่ไหม${p}`,
+            phonetic: `sa-thaa-nee rot-fai glai jaak tee-nee mai ${pp}?`,
+            tip: 'Locals often point and tell you how many minutes it takes.',
+          },
+          {
+            id: 'dyn-dir-th-3',
+            english: 'Thank you so much for your help!',
+            native: `ขอบคุณมากนะ${p} ช่วยได้มากเลย${p}`,
+            phonetic: `khop-khun maak na ${pp}, chuai dai maak loei ${pp}!`,
+            tip: 'Warm thanks.',
+          },
+        ],
+        dialogue: [
+          {
+            speaker: 'you',
+            english: 'Excuse me, where is the nearest train station?',
+            native: `ขอโทษนะ${p} สถานีรถไฟอยู่ทางไหน${p}`,
+            phonetic: `khor-thot na ${pp}, sa-thaa-nee rot-fai yoo thaang nai ${pp}?`,
+          },
+          {
+            speaker: 'local',
+            english: 'Walk straight ahead, then turn left!',
+            native: 'เดินตรงไปแล้วเลี้ยวซ้ายครับ',
+            phonetic: 'doen trong pai laeo liao saai khrap!',
+          },
+          {
+            speaker: 'you',
+            english: 'Thank you so much! You are very kind.',
+            native: `ขอบคุณมาก${p} คุณใจดีมาก${p}`,
+            phonetic: `khop-khun maak ${pp}, khun jai-dee maak ${pp}!`,
+          },
+        ],
+      },
+      id: {
+        contextSummary: 'Asking for directions, transit, or the restroom in Indonesian.',
+        phrases: [
+          {
+            id: 'dyn-dir-id-1',
+            english: 'Excuse me, where is the restroom?',
+            native: 'Permisi, toiletnya di sebelah mana ya?',
+            phonetic: 'per-MEE-see, toy-LET-nyah dee seh-beh-LAH MAH-nah yah?',
+            tip: 'Polite and easy to understand everywhere.',
+          },
+          {
+            id: 'dyn-dir-id-2',
+            english: 'Is it far to walk from here?',
+            native: 'Kalau jalan kaki dari sini jauh ya?',
+            phonetic: 'KAH-low JAH-lahn KAH-kee DAH-ree SEE-nee JOW yah?',
+            tip: '"Jalan kaki" means walking on foot.',
+          },
+          {
+            id: 'dyn-dir-id-3',
+            english: 'Thank you very much!',
+            native: 'Terima kasih banyak!',
+            phonetic: 'teh-ree-mah KAH-see BAHN-yahk!',
+            tip: 'Warm gratitude.',
+          },
+        ],
+        dialogue: [
+          {
+            speaker: 'you',
+            english: 'Excuse me, which way to the station?',
+            native: 'Permisi, stasiunnya di sebelah mana ya?',
+            phonetic: 'per-MEE-see, stah-see-OON-nyah dee seh-beh-LAH MAH-nah yah?',
+          },
+          {
+            speaker: 'local',
+            english: 'Go straight ahead, it is very close!',
+            native: 'Lurus saja, dekat kok!',
+            phonetic: 'LOO-roos SAH-jah, deh-KAHT kohk!',
+          },
+          {
+            speaker: 'you',
+            english: 'Thank you so much, you are very kind!',
+            native: 'Terima kasih banyak, Anda baik sekali!',
+            phonetic: 'teh-ree-mah KAH-see BAHN-yahk, AHN-dah bah-eek seh-KAH-lee!',
+          },
+        ],
+      },
+      it: {
+        contextSummary: 'Asking politely for directions or a restroom in Italian.',
+        phrases: [
+          {
+            id: 'dyn-dir-it-1',
+            english: 'Excuse me, where is the restroom?',
+            native: 'Mi scusi, dov’è il bagno?',
+            phonetic: 'mee SKOO-zee, doh-VEH eel BAHN-yoh?',
+            tip: 'Essential phrase in cafés and stations.',
+          },
+          {
+            id: 'dyn-dir-it-2',
+            english: 'Is the station far from here?',
+            native: 'La stazione è lontana da qui?',
+            phonetic: 'lah stah-TSYOH-neh eh lohn-TAH-nah dah kwee?',
+            tip: 'Clear and polite.',
+          },
+          {
+            id: 'dyn-dir-it-3',
+            english: 'Thank you so much for your help!',
+            native: 'Grazie mille per l’aiuto!',
+            phonetic: 'GRAHT-syeh MEEL-leh per lah-YOO-toh!',
+            tip: 'Warm thanks.',
+          },
+        ],
+        dialogue: [
+          {
+            speaker: 'you',
+            english: 'Excuse me, where is the train station?',
+            native: 'Mi scusi, dov’è la stazione?',
+            phonetic: 'mee SKOO-zee, doh-VEH lah stah-TSYOH-neh?',
+          },
+          {
+            speaker: 'local',
+            english: 'Always straight ahead, five minutes on foot!',
+            native: 'Sempre dritto, cinque minuti a piedi!',
+            phonetic: 'SEM-preh DREET-toh, CHEEN-kweh mee-NOO-tee ah PYEH-dee!',
+          },
+          {
+            speaker: 'you',
+            english: 'Thank you, you are very kind!',
+            native: 'Grazie mille, è davvero gentile!',
+            phonetic: 'GRAHT-syeh MEEL-leh, eh dahv-VEH-roh jen-TEE-leh!',
+          },
+        ],
+      },
+      es: {
+        contextSummary: 'Asking politely for directions or a restroom in Spanish.',
+        phrases: [
+          {
+            id: 'dyn-dir-es-1',
+            english: 'Excuse me, where is the bathroom?',
+            native: 'Disculpe, ¿dónde está el baño?',
+            phonetic: 'dees-KOOL-peh, DOHN-deh es-TAH el BAHN-yoh?',
+            tip: 'Clear and polite everywhere.',
+          },
+          {
+            id: 'dyn-dir-es-2',
+            english: 'Is the station far from here?',
+            native: '¿La estación está lejos de aquí?',
+            phonetic: 'lah es-tah-SYOHN es-TAH LEH-hohs deh ah-KEE?',
+            tip: 'Useful when walking with kids.',
+          },
+          {
+            id: 'dyn-dir-es-3',
+            english: 'Thank you very much for your help!',
+            native: '¡Muchas gracias por su ayuda!',
+            phonetic: 'MOO-chahs GRAH-syahs por soo ah-YOO-dah!',
+            tip: 'Warm gratitude.',
+          },
+        ],
+        dialogue: [
+          {
+            speaker: 'you',
+            english: 'Excuse me, where is the train station?',
+            native: 'Disculpe, ¿dónde está la estación?',
+            phonetic: 'dees-KOOL-peh, DOHN-deh es-TAH lah es-tah-SYOHN?',
+          },
+          {
+            speaker: 'local',
+            english: 'Walk straight ahead and turn right.',
+            native: 'Camine derecho y doble a la derecha.',
+            phonetic: 'kah-MEE-neh deh-REH-choh ee DOH-bleh ah lah deh-REH-chah.',
+          },
+          {
+            speaker: 'you',
+            english: 'Thank you so much, how kind!',
+            native: '¡Muchas gracias, qué amable!',
+            phonetic: 'MOO-chahs GRAH-syahs, keh ah-MAH-bleh!',
+          },
+        ],
+      },
+    },
+
+    health: {
+      th: {
+        contextSummary: 'Getting help at a pharmacy or for a family member who feels unwell.',
+        phrases: [
+          {
+            id: 'dyn-hlth-th-1',
+            english: 'Excuse me, where is the nearest pharmacy?',
+            native: `ขอโทษนะ${p} ร้านขายยาที่ใกล้ที่สุดอยู่ไหน${p}`,
+            phonetic: `khor-thot na ${pp}, raan khaai yaa tee glai tee-sut yoo nai ${pp}?`,
+            tip: '"Raan khaai yaa" = pharmacy.',
+          },
+          {
+            id: 'dyn-hlth-th-2',
+            english: 'Do you have medicine for a child’s fever / stomachache?',
+            native: `มียาแก้ไข้ / ปวดท้องสำหรับเด็กไหม${p}`,
+            phonetic: `mee yaa gae khai / puat thong sam-rap dek mai ${pp}?`,
+            tip: 'Use "Show Screen" if needed so the pharmacist can read it clearly.',
+          },
+          {
+            id: 'dyn-hlth-th-3',
+            english: 'Thank you so much for helping our family.',
+            native: `ขอบคุณมากๆ ที่ช่วยครอบครัวเรานะ${p}`,
+            phonetic: `khop-khun maak-maak tee chuai khrop-khrua rao na ${pp}`,
+            tip: 'Heartfelt gratitude.',
+          },
+        ],
+        dialogue: [
+          {
+            speaker: 'local',
+            english: 'Hello, how can I help you today?',
+            native: 'สวัสดีค่ะ มีอะไรให้ช่วยคะ',
+            phonetic: 'sa-wat-dee kha, mee a-rai hai chuai kha?',
+          },
+          {
+            speaker: 'you',
+            english: 'Our child has a mild fever. Do you have medicine for kids?',
+            native: `ลูกมีไข้นิดหน่อย มียาสำหรับเด็กไหม${p}`,
+            phonetic: `look mee khai nit-noi, mee yaa sam-rap dek mai ${pp}?`,
+          },
+          {
+            speaker: 'local',
+            english: 'Yes, let me get the gentle children’s syrup for you.',
+            native: 'มีค่ะ เดี๋ยวจัดยาน้ำสำหรับเด็กให้นะคะ',
+            phonetic: 'mee kha, diao jat yaa-naam sam-rap dek hai na kha.',
+          },
+        ],
+      },
+      id: {
+        contextSummary: 'Asking at an Indonesian pharmacy ("Apotek") for family care.',
+        phrases: [
+          {
+            id: 'dyn-hlth-id-1',
+            english: 'Excuse me, where is the nearest pharmacy?',
+            native: 'Permisi, apotek terdekat di mana ya?',
+            phonetic: 'per-MEE-see, ah-poh-TEK ter-deh-KAHT dee MAH-nah yah?',
+            tip: '"Apotek" = pharmacy.',
+          },
+          {
+            id: 'dyn-hlth-id-2',
+            english: 'Do you have fever / stomach medicine for children?',
+            native: 'Ada obat demam atau sakit perut untuk anak-anak?',
+            phonetic: 'AH-dah OH-baht deh-MAHM ah-TOW SAH-kit peh-ROOT oon-TOOK AH-nahk-AH-nahk?',
+            tip: '"Obat" = medicine, "demam" = fever.',
+          },
+          {
+            id: 'dyn-hlth-id-3',
+            english: 'Thank you very much for your help.',
+            native: 'Terima kasih banyak atas bantuannya!',
+            phonetic: 'teh-ree-mah KAH-see BAHN-yahk AH-tahs bahn-too-AHN-nyah!',
+            tip: 'Warm thanks.',
+          },
+        ],
+        dialogue: [
+          {
+            speaker: 'local',
+            english: 'Hello, what medicine are you looking for?',
+            native: 'Halo, cari obat apa?',
+            phonetic: 'HAH-loh, CHAH-ree OH-baht AH-pah?',
+          },
+          {
+            speaker: 'you',
+            english: 'Do you have gentle fever medicine for our child?',
+            native: 'Ada obat demam untuk anak-anak?',
+            phonetic: 'AH-dah OH-baht deh-MAHM oon-TOOK AH-nahk-AH-nahk?',
+          },
+          {
+            speaker: 'local',
+            english: 'Yes, we have children’s syrup right here.',
+            native: 'Ada, ini sirup untuk anak.',
+            phonetic: 'AH-dah, EE-nee SEE-roop oon-TOOK AH-nahk.',
+          },
+        ],
+      },
+      it: {
+        contextSummary: 'Speaking with an Italian pharmacist ("Farmacia") for family health.',
+        phrases: [
+          {
+            id: 'dyn-hlth-it-1',
+            english: 'Excuse me, where is the nearest pharmacy?',
+            native: 'Mi scusi, dov’è la farmacia più vicina?',
+            phonetic: 'mee SKOO-zee, doh-VEH lah far-mah-CHEE-ah pyoo vee-CHEE-nah?',
+            tip: 'Look for the glowing green cross in Italy.',
+          },
+          {
+            id: 'dyn-hlth-it-2',
+            english: 'Do you have something for a child’s fever?',
+            native: 'Ha qualcosa per la febbre di un bambino?',
+            phonetic: 'ah kwahl-KOH-zah per lah FEB-breh dee oon bahm-BEE-noh?',
+            tip: 'Italian pharmacists are very knowledgeable and helpful.',
+          },
+          {
+            id: 'dyn-hlth-it-3',
+            english: 'Thank you so much for your help!',
+            native: 'Grazie mille per il suo aiuto!',
+            phonetic: 'GRAHT-syeh MEEL-leh per eel SOO-oh ah-YOO-toh!',
+            tip: 'Warm gratitude.',
+          },
+        ],
+        dialogue: [
+          {
+            speaker: 'local',
+            english: 'Good morning, how can I help you?',
+            native: 'Buongiorno, come posso aiutarLa?',
+            phonetic: 'bwohn-JOHR-noh, KOH-meh POHS-soh ah-yoo-TAR-lah?',
+          },
+          {
+            speaker: 'you',
+            english: 'Do you have medicine for a child’s mild fever?',
+            native: 'Ha qualcosa per la febbre di un bambino?',
+            phonetic: 'ah kwahl-KOH-zah per lah FEB-breh dee oon bahm-BEE-noh?',
+          },
+          {
+            speaker: 'local',
+            english: 'Of course, this one is gentle for children.',
+            native: 'Certamente, questo è adatto ai bambini.',
+            phonetic: 'cher-tah-MEN-teh, KWEHS-toh eh ah-DAHT-toh eye bahm-BEE-nee.',
+          },
+        ],
+      },
+      es: {
+        contextSummary: 'Asking at a Spanish pharmacy ("Farmacia") for family care.',
+        phrases: [
+          {
+            id: 'dyn-hlth-es-1',
+            english: 'Excuse me, where is the nearest pharmacy?',
+            native: 'Disculpe, ¿dónde está la farmacia más cercana?',
+            phonetic: 'dees-KOOL-peh, DOHN-deh es-TAH lah far-MAH-syah mahs ser-KAH-nah?',
+            tip: '"Farmacia" = pharmacy.',
+          },
+          {
+            id: 'dyn-hlth-es-2',
+            english: 'Do you have medicine for a child’s fever?',
+            native: '¿Tiene medicina para la fiebre de un niño?',
+            phonetic: 'TYEH-neh meh-dee-SEE-nah PAH-rah lah FYEH-breh deh oon NEEN-yoh?',
+            tip: 'Clear and polite.',
+          },
+          {
+            id: 'dyn-hlth-es-3',
+            english: 'Thank you very much for helping us!',
+            native: '¡Muchas gracias por ayudarnos!',
+            phonetic: 'MOO-chahs GRAH-syahs por ah-yoo-DAR-nohs!',
+            tip: 'Warm gratitude.',
+          },
+        ],
+        dialogue: [
+          {
+            speaker: 'local',
+            english: 'Hello, how can I help you?',
+            native: '¡Hola! ¿En qué le puedo ayudar?',
+            phonetic: 'OH-lah! en keh leh PWEH-doh ah-yoo-DAR?',
+          },
+          {
+            speaker: 'you',
+            english: 'Do you have fever medicine for a child?',
+            native: '¿Tiene medicina para la fiebre de un niño?',
+            phonetic: 'TYEH-neh meh-dee-SEE-nah PAH-rah lah FYEH-breh deh oon NEEN-yoh?',
+          },
+          {
+            speaker: 'local',
+            english: 'Yes, here is a gentle syrup for children.',
+            native: 'Sí, aquí tiene un jarabe para niños.',
+            phonetic: 'see, ah-KEE TYEH-neh oon hah-RAH-beh PAH-rah NEEN-yohs.',
           },
         ],
       },

@@ -24,6 +24,7 @@ import {
   type StoredAppState,
 } from './utils/storage';
 import {
+  deleteHouseholdMember,
   fetchHouseholdMembers,
   isFirebaseConfigured,
   subscribeAuth,
@@ -250,6 +251,46 @@ export function App() {
     setToastMsg(`Welcome, ${name}!`);
   };
 
+  const handleEditProfile = (
+    profileId: string,
+    updates: {
+      name: string;
+      avatarEmoji: string;
+      thaiPoliteForm: ThaiPoliteForm;
+      pin?: string;
+    }
+  ) => {
+    setAppState((prev) => ({
+      ...prev,
+      profiles: prev.profiles.map((p) => {
+        if (p.id !== profileId) return p;
+        const updated = { ...p, ...updates };
+        if (householdUserId) {
+          void upsertHouseholdMember(householdUserId, updated);
+        }
+        return updated;
+      }),
+    }));
+  };
+
+  const handleDeleteProfile = (profileId: string) => {
+    setAppState((prev) => {
+      if (prev.profiles.length <= 1) return prev;
+      const remaining = prev.profiles.filter((p) => p.id !== profileId);
+      const nextActiveId =
+        prev.activeProfileId === profileId ? remaining[0].id : prev.activeProfileId;
+      return {
+        ...prev,
+        activeProfileId: nextActiveId,
+        profiles: remaining,
+      };
+    });
+    if (householdUserId) {
+      void deleteHouseholdMember(householdUserId, profileId);
+    }
+    setToastMsg('Profile removed.');
+  };
+
   return (
     <div className="app-viewport">
       <div className="app-shell">
@@ -330,6 +371,7 @@ export function App() {
               speakingId={speakingId}
               onSpeak={handleSpeak}
               onUpdateIntroPrefs={handleUpdateIntroPrefs}
+              onToast={setToastMsg}
             />
           )}
 
@@ -357,6 +399,8 @@ export function App() {
                 setAppState((prev) => ({ ...prev, activeProfileId: id }))
               }
               onAddProfile={handleAddProfile}
+              onEditProfile={handleEditProfile}
+              onDeleteProfile={handleDeleteProfile}
               onSpeak={handleSpeak}
               onRemoveCustomPhrase={handleRemoveCustomPhrase}
               onToast={setToastMsg}

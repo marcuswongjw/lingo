@@ -1,16 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Bookmark, Sparkles, Volume2 } from 'lucide-react';
+import { Bookmark, Eye, EyeOff, Maximize2, Sparkles, Volume2 } from 'lucide-react';
 import {
   generateDynamicSituation,
   SITUATION_PRESETS,
 } from '../data/dynamicEngine';
 import { LANGUAGES, REACTIONS } from '../data/languages';
-import type {
-  CustomPhrase,
-  FamilyProfile,
-  LanguageCode,
-} from '../types';
+import type { CustomPhrase, FamilyProfile, LanguageCode } from '../types';
 import { resolveThaiText } from '../utils/speech';
+import { ShowLocalModal } from './ShowLocalModal';
 
 interface PracticeTabProps {
   profile: FamilyProfile;
@@ -30,6 +27,14 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
   const langMeta = LANGUAGES.find((l) => l.code === language)!;
   const [situationInput, setSituationInput] = useState(SITUATION_PRESETS[0].query);
   const [submittedQuery, setSubmittedQuery] = useState(SITUATION_PRESETS[0].query);
+  const [hideMyLines, setHideMyLines] = useState(false);
+  const [revealedTurns, setRevealedTurns] = useState<Record<number, boolean>>({});
+  const [modalPhrase, setModalPhrase] = useState<{
+    id: string;
+    native: string;
+    phonetic: string;
+    english: string;
+  } | null>(null);
 
   const result = useMemo(
     () =>
@@ -39,10 +44,12 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
 
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
+    setRevealedTurns({});
     setSubmittedQuery(situationInput);
   };
 
   const handlePresetClick = (presetQuery: string) => {
+    setRevealedTurns({});
     setSituationInput(presetQuery);
     setSubmittedQuery(presetQuery);
   };
@@ -66,11 +73,7 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
             marginBottom: 8,
           }}
         >
-          <h2
-            id="reactions-heading"
-            className="slot-label"
-            style={{ margin: 0 }}
-          >
+          <h2 id="reactions-heading" className="slot-label" style={{ margin: 0 }}>
             Quick Warm Reactions ({langMeta.name})
           </h2>
         </div>
@@ -152,7 +155,7 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
             style={{ paddingLeft: 12, paddingRight: 12 }}
             value={situationInput}
             onChange={(e) => setSituationInput(e.target.value)}
-            placeholder="e.g., Chatting with our Thai taxi driver..."
+            placeholder="e.g., Where is the train station?"
             aria-label="Describe your situation"
           />
           <button type="submit" className="dynamic-submit-btn">
@@ -190,28 +193,48 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
                   <p className="phrase-english" style={{ fontSize: 13 }}>
                     {p.english}
                   </p>
-                  <button
-                    type="button"
-                    className={`icon-action-btn ${alreadySaved ? 'fav-active' : ''}`}
-                    onClick={() =>
-                      onSaveCustomPhrase({
-                        id: `${p.id}-${Date.now()}`,
-                        language,
-                        english: p.english,
-                        native: p.native,
-                        phonetic: p.phonetic,
-                        tip: p.tip,
-                        situationTitle: result.title,
-                        createdAt: Date.now(),
-                      })
-                    }
-                  >
-                    <Bookmark
-                      size={12}
-                      fill={alreadySaved ? 'currentColor' : 'none'}
-                    />
-                    {alreadySaved ? 'Saved' : 'Save'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      className="icon-action-btn"
+                      onClick={() =>
+                        setModalPhrase({
+                          id: p.id,
+                          native: p.native,
+                          phonetic: p.phonetic,
+                          english: p.english,
+                        })
+                      }
+                      aria-label="Show full screen to local"
+                      title="Show big text to a local"
+                    >
+                      <Maximize2 size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`icon-action-btn ${
+                        alreadySaved ? 'fav-active' : ''
+                      }`}
+                      onClick={() =>
+                        onSaveCustomPhrase({
+                          id: `${p.id}-${Date.now()}`,
+                          language,
+                          english: p.english,
+                          native: p.native,
+                          phonetic: p.phonetic,
+                          tip: p.tip,
+                          situationTitle: result.title,
+                          createdAt: Date.now(),
+                        })
+                      }
+                    >
+                      <Bookmark
+                        size={12}
+                        fill={alreadySaved ? 'currentColor' : 'none'}
+                      />
+                      {alreadySaved ? 'Saved' : 'Save'}
+                    </button>
+                  </div>
                 </div>
 
                 <button
@@ -250,11 +273,35 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
             gap: 8,
           }}
         >
-          <span className="slot-label">Mini Practice Dialogue (Tap to Hear)</span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+            }}
+          >
+            <span className="slot-label">Mini Practice Dialogue</span>
+            <button
+              type="button"
+              className={`icon-action-btn ${hideMyLines ? 'fav-active' : ''}`}
+              onClick={() => {
+                setHideMyLines((prev) => !prev);
+                setRevealedTurns({});
+              }}
+            >
+              {hideMyLines ? <EyeOff size={12} /> : <Eye size={12} />}
+              {hideMyLines ? 'My Line Hidden' : 'Test Yourself'}
+            </button>
+          </div>
+
           <div className="dialogue-box">
             {result.dialogue.map((turn, idx) => {
               const turnId = `${result.id}-turn-${idx}`;
               const isSpeaking = speakingId === turnId;
+              const isHidden =
+                hideMyLines && turn.speaker === 'you' && !revealedTurns[idx];
+
               return (
                 <button
                   key={turnId}
@@ -264,7 +311,12 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
                     textAlign: 'left',
                     borderColor: isSpeaking ? 'var(--accent-primary)' : undefined,
                   }}
-                  onClick={() => onSpeak(turnId, turn.native)}
+                  onClick={() => {
+                    if (isHidden) {
+                      setRevealedTurns((prev) => ({ ...prev, [idx]: true }));
+                    }
+                    onSpeak(turnId, turn.native);
+                  }}
                 >
                   <div
                     style={{
@@ -274,28 +326,71 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
                     }}
                   >
                     <span className="turn-speaker">
-                      {turn.speaker === 'local' ? 'Local' : `${profile.name} (You)`}
+                      {turn.speaker === 'local'
+                        ? 'Local'
+                        : `${profile.name} (You)`}
                     </span>
                     <Volume2 size={14} color="var(--accent-primary)" />
                   </div>
-                  <div
-                    className="phrase-native-text"
-                    style={{ fontSize: 15, marginTop: 2 }}
-                  >
-                    {turn.native}
-                  </div>
-                  <div className="phrase-phonetic" style={{ marginTop: 1 }}>
-                    {turn.phonetic}
-                  </div>
-                  <div className="cultural-tip" style={{ marginTop: 2 }}>
-                    “{turn.english}”
-                  </div>
+
+                  {isHidden ? (
+                    <>
+                      <div
+                        className="cultural-tip"
+                        style={{
+                          fontSize: 13.5,
+                          fontWeight: 700,
+                          color: 'var(--ink-primary)',
+                          marginTop: 4,
+                        }}
+                      >
+                        Try saying: “{turn.english}”
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: 'var(--accent-primary)',
+                          marginTop: 2,
+                        }}
+                      >
+                        Tap to reveal &amp; hear
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div
+                        className="phrase-native-text"
+                        style={{ fontSize: 15, marginTop: 2 }}
+                      >
+                        {turn.native}
+                      </div>
+                      <div className="phrase-phonetic" style={{ marginTop: 1 }}>
+                        {turn.phonetic}
+                      </div>
+                      <div className="cultural-tip" style={{ marginTop: 2 }}>
+                        “{turn.english}”
+                      </div>
+                    </>
+                  )}
                 </button>
               );
             })}
           </div>
         </div>
       </section>
+
+      {modalPhrase && (
+        <ShowLocalModal
+          nativeText={modalPhrase.native}
+          phoneticText={modalPhrase.phonetic}
+          englishText={modalPhrase.english}
+          language={language}
+          isSpeaking={speakingId === modalPhrase.id}
+          onSpeak={() => onSpeak(modalPhrase.id, modalPhrase.native)}
+          onClose={() => setModalPhrase(null)}
+        />
+      )}
     </>
   );
 };

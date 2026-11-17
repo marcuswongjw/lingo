@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   getFirestore,
@@ -118,4 +119,13 @@ export async function upsertHouseholdMember(
     payload.pin = profile.pin;
   }
   await setDoc(memberRef, payload, { merge: true });
+}
+
+export async function deleteHouseholdMember(
+  userId: string,
+  profileId: string
+): Promise<void> {
+  if (!db) return;
+  const memberRef = doc(db, 'households', userId, 'members', profileId);
+  await deleteDoc(memberRef);
 }

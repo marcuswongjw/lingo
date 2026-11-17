@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   Cloud,
   Lock,
   LogOut,
+  Pencil,
   Plus,
   RefreshCw,
   Trash2,
@@ -33,6 +36,16 @@ interface FamilyTabProps {
     thaiPoliteForm: ThaiPoliteForm,
     pin?: string
   ) => void;
+  onEditProfile: (
+    profileId: string,
+    updates: {
+      name: string;
+      avatarEmoji: string;
+      thaiPoliteForm: ThaiPoliteForm;
+      pin?: string;
+    }
+  ) => void;
+  onDeleteProfile: (profileId: string) => void;
   onSpeak: (
     id: string,
     text: string,
@@ -53,6 +66,8 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
   onSyncNow,
   onSelectProfile,
   onAddProfile,
+  onEditProfile,
+  onDeleteProfile,
   onSpeak,
   onRemoveCustomPhrase,
   onToast,
@@ -63,11 +78,19 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
   const [newPin, setNewPin] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // Edit member state
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmoji, setEditEmoji] = useState('🧭');
+  const [editPolite, setEditPolite] = useState<ThaiPoliteForm>('khrap');
+  const [editPin, setEditPin] = useState('');
+
   // PIN unlock state when switching to a PIN-protected member
   const [pendingProfile, setPendingProfile] = useState<FamilyProfile | null>(null);
   const [pinAttempt, setPinAttempt] = useState('');
 
   // Household Auth form state
+  const [cloudExpanded, setCloudExpanded] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -85,6 +108,32 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
     setNewName('');
     setNewPin('');
     setShowAddForm(false);
+  };
+
+  const startEditing = (p: FamilyProfile) => {
+    setEditingProfileId(p.id);
+    setEditName(p.name);
+    setEditEmoji(p.avatarEmoji);
+    setEditPolite(p.thaiPoliteForm);
+    setEditPin(p.pin ?? '');
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProfileId || !editName.trim()) return;
+    const cleanedPin = editPin.replace(/\D/g, '').slice(0, 4);
+    if (editPin && cleanedPin.length !== 4) {
+      onToast('PIN must be 4 digits (or leave blank).');
+      return;
+    }
+    onEditProfile(editingProfileId, {
+      name: editName.trim(),
+      avatarEmoji: editEmoji,
+      thaiPoliteForm: editPolite,
+      pin: cleanedPin || undefined,
+    });
+    setEditingProfileId(null);
+    onToast('Profile updated!');
   };
 
   const handleProfileTap = (profile: FamilyProfile) => {
@@ -145,17 +194,20 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
       <div className="section-header">
         <h1 className="section-title">Family Profiles</h1>
         <p className="section-desc">
-          Switch learners on this device or sign into your Household account to sync across every family phone.
+          Switch learners on this device or sync progress across every family phone.
         </p>
       </div>
 
-      {/* Household Cloud Sync Card */}
-      <div className="builder-card">
-        <div
+      {/* Collapsible Household Cloud Sync Card */}
+      <div className="builder-card" style={{ gap: 10, padding: '12px 14px' }}>
+        <button
+          type="button"
+          onClick={() => setCloudExpanded((prev) => !prev)}
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            width: '100%',
             gap: 8,
           }}
         >
@@ -164,63 +216,74 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
             <Cloud size={14} color="var(--accent-primary)" />
-            Household Cloud Sync
+            {householdEmail ? `Synced: ${householdEmail}` : 'Household Cloud Sync'}
           </span>
-          {householdEmail && (
-            <span className="phrase-badge" style={{ background: 'var(--accent-sage-soft)', color: 'var(--accent-sage)' }}>
-              Connected
-            </span>
-          )}
-        </div>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {householdEmail && (
+              <span
+                className="phrase-badge"
+                style={{
+                  background: 'var(--accent-sage-soft)',
+                  color: 'var(--accent-sage)',
+                }}
+              >
+                Connected
+              </span>
+            )}
+            {householdEmail &&
+              (cloudExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
+          </span>
+        </button>
 
         {!isFirebaseConfigured ? (
           <p className="section-desc" style={{ fontSize: 12.5 }}>
-            Currently saving locally on this phone. To sync across family phones, add your{' '}
-            <code>VITE_FIREBASE_*</code> config to GitHub repository variables and publish{' '}
-            <code>firebase/firestore.rules</code>.
+            Currently saving locally on this phone. Add{' '}
+            <code>VITE_FIREBASE_*</code> config to enable cross-device sync.
           </p>
         ) : householdEmail ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <p className="section-desc" style={{ fontSize: 13 }}>
-              Signed in as <strong>{householdEmail}</strong>. All family member progress syncs automatically.
-            </p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                className="slot-pill"
-                style={{
-                  flex: 1,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                }}
-                onClick={onSyncNow}
-                disabled={isSyncing}
-              >
-                <RefreshCw size={13} />
-                {isSyncing ? 'Syncing...' : 'Sync Now'}
-              </button>
-              <button
-                type="button"
-                className="slot-pill"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                }}
-                onClick={handleSignOut}
-              >
-                <LogOut size={13} />
-                Sign Out
-              </button>
+          cloudExpanded && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
+              <p className="section-desc" style={{ fontSize: 12.5 }}>
+                All family member progress syncs automatically to your Household cloud.
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="slot-pill"
+                  style={{
+                    flex: 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                  onClick={onSyncNow}
+                  disabled={isSyncing}
+                >
+                  <RefreshCw size={13} />
+                  {isSyncing ? 'Syncing...' : 'Sync Now'}
+                </button>
+                <button
+                  type="button"
+                  className="slot-pill"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                  onClick={handleSignOut}
+                >
+                  <LogOut size={13} />
+                  Sign Out
+                </button>
+              </div>
             </div>
-          </div>
+          )
         ) : (
           <form
             onSubmit={handleAuthSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}
           >
             <div className="segmented-control" style={{ alignSelf: 'flex-start' }}>
               <button
@@ -289,7 +352,9 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
               style={{ flex: 1, letterSpacing: '0.3em', textAlign: 'center' }}
               placeholder="••••"
               value={pinAttempt}
-              onChange={(e) => setPinAttempt(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              onChange={(e) =>
+                setPinAttempt(e.target.value.replace(/\D/g, '').slice(0, 4))
+              }
               autoFocus
             />
             <button
@@ -314,15 +379,115 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {profiles.map((p) => {
           const isActive = p.id === activeProfile.id;
+          const isEditing = editingProfileId === p.id;
+
+          if (isEditing) {
+            return (
+              <form key={p.id} onSubmit={handleSaveEdit} className="builder-card">
+                <div className="slot-group">
+                  <label htmlFor={`edit-name-${p.id}`} className="slot-label">
+                    Edit Name
+                  </label>
+                  <input
+                    id={`edit-name-${p.id}`}
+                    type="text"
+                    className="slot-input"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                  />
+                </div>
+
+                <div className="slot-group">
+                  <span className="slot-label">Icon</span>
+                  <div className="pill-grid">
+                    {AVATAR_CHOICES.map((em) => (
+                      <button
+                        key={em}
+                        type="button"
+                        className={`slot-pill ${editEmoji === em ? 'active' : ''}`}
+                        onClick={() => setEditEmoji(em)}
+                      >
+                        {em}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="slot-group">
+                  <span className="slot-label">Thai Polite Ending</span>
+                  <div className="segmented-control" style={{ alignSelf: 'flex-start' }}>
+                    <button
+                      type="button"
+                      className={`seg-btn ${editPolite === 'khrap' ? 'active' : ''}`}
+                      onClick={() => setEditPolite('khrap')}
+                    >
+                      ครับ khrap (M)
+                    </button>
+                    <button
+                      type="button"
+                      className={`seg-btn ${editPolite === 'kha' ? 'active' : ''}`}
+                      onClick={() => setEditPolite('kha')}
+                    >
+                      ค่ะ kha (F)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="slot-group">
+                  <label htmlFor={`edit-pin-${p.id}`} className="slot-label">
+                    4-Digit PIN (Optional)
+                  </label>
+                  <input
+                    id={`edit-pin-${p.id}`}
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={4}
+                    className="slot-input"
+                    placeholder="Leave blank to remove PIN"
+                    value={editPin}
+                    onChange={(e) =>
+                      setEditPin(e.target.value.replace(/\D/g, '').slice(0, 4))
+                    }
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="slot-pill"
+                    style={{ flex: 1 }}
+                    onClick={() => setEditingProfileId(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="primary-listen-btn"
+                    style={{ flex: 2, height: 42 }}
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            );
+          }
+
           return (
-            <button
+            <div
               key={p.id}
-              type="button"
               className={`family-card ${isActive ? 'active' : ''}`}
-              onClick={() => handleProfileTap(p)}
-              style={{ textAlign: 'left', width: '100%' }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => handleProfileTap(p)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  flex: 1,
+                  textAlign: 'left',
+                }}
+              >
                 <span className="family-avatar" aria-hidden="true">
                   {p.avatarEmoji}
                 </span>
@@ -338,22 +503,46 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
                   >
                     {p.name}
                     {p.pin && <Lock size={12} color="var(--ink-muted)" />}
+                    {isActive && (
+                      <span
+                        className="phrase-badge"
+                        style={{
+                          background: 'var(--accent-sage-soft)',
+                          color: 'var(--accent-sage)',
+                        }}
+                      >
+                        <Check size={10} /> Active
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-muted)' }}>
-                    {p.learnedPhraseIds.length} phrases practiced · Thai:{' '}
+                    {p.learnedPhraseIds.length} practiced · Thai:{' '}
                     {p.thaiPoliteForm === 'khrap' ? 'ครับ (khrap)' : 'ค่ะ (kha)'}
                   </div>
                 </div>
-              </div>
-              {isActive && (
-                <span
-                  className="icon-action-btn learned-active"
-                  style={{ pointerEvents: 'none' }}
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button
+                  type="button"
+                  className="icon-action-btn"
+                  onClick={() => startEditing(p)}
+                  aria-label={`Edit ${p.name}`}
                 >
-                  <Check size={13} /> Active
-                </span>
-              )}
-            </button>
+                  <Pencil size={12} />
+                </button>
+                {profiles.length > 1 && (
+                  <button
+                    type="button"
+                    className="icon-action-btn"
+                    onClick={() => onDeleteProfile(p.id)}
+                    aria-label={`Remove ${p.name}`}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+            </div>
           );
         })}
       </div>
@@ -506,7 +695,7 @@ export const FamilyTab: React.FC<FamilyTabProps> = ({
         </span>
         {activeProfile.savedCustomPhrases.length === 0 ? (
           <p className="section-desc">
-            Save any phrase from the Practice tab’s Situation Helper to keep it here for your trip.
+            Save any phrase from the Situations tab to keep it here for your trip.
           </p>
         ) : (
           <div className="phrase-list">

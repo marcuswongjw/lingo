@@ -1,5 +1,5 @@
-import React from 'react';
-import { Volume2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Copy, Maximize2, Volume2 } from 'lucide-react';
 import {
   buildPersonalIntro,
   COMPANION_OPTIONS,
@@ -8,6 +8,7 @@ import {
 } from '../data/introBuilder';
 import { LANGUAGES } from '../data/languages';
 import type { FamilyProfile, LanguageCode } from '../types';
+import { ShowLocalModal } from './ShowLocalModal';
 
 interface IntroTabProps {
   profile: FamilyProfile;
@@ -15,6 +16,7 @@ interface IntroTabProps {
   speakingId: string | null;
   onSpeak: (id: string, text: string) => void;
   onUpdateIntroPrefs: (prefs: FamilyProfile['introPrefs']) => void;
+  onToast: (msg: string) => void;
 }
 
 export const IntroTab: React.FC<IntroTabProps> = ({
@@ -23,7 +25,9 @@ export const IntroTab: React.FC<IntroTabProps> = ({
   speakingId,
   onSpeak,
   onUpdateIntroPrefs,
+  onToast,
 }) => {
+  const [showModal, setShowModal] = useState(false);
   const langMeta = LANGUAGES.find((l) => l.code === language)!;
   const { displayName, originKey, companionKey, loveKey } = profile.introPrefs;
 
@@ -39,6 +43,15 @@ export const IntroTab: React.FC<IntroTabProps> = ({
   const introSpeechId = `intro-output-${language}`;
   const isSpeaking = speakingId === introSpeechId;
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(built.native);
+      onToast('Intro copied to clipboard!');
+    } catch {
+      onToast('Could not copy to clipboard.');
+    }
+  };
+
   return (
     <>
       <div className="section-header">
@@ -53,6 +66,24 @@ export const IntroTab: React.FC<IntroTabProps> = ({
           <span className="slot-label" style={{ color: 'var(--accent-primary)' }}>
             {langMeta.flag} Ready to say in {langMeta.name}
           </span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              className="icon-action-btn"
+              onClick={handleCopy}
+              aria-label="Copy intro text"
+            >
+              <Copy size={12} /> Copy
+            </button>
+            <button
+              type="button"
+              className="icon-action-btn"
+              onClick={() => setShowModal(true)}
+              aria-label="Show intro full screen"
+            >
+              <Maximize2 size={12} /> Show
+            </button>
+          </div>
         </div>
 
         <div className="phrase-native-text" style={{ fontSize: 18 }}>
@@ -152,6 +183,18 @@ export const IntroTab: React.FC<IntroTabProps> = ({
           </div>
         </div>
       </div>
+
+      {showModal && (
+        <ShowLocalModal
+          nativeText={built.native}
+          phoneticText={built.phonetic}
+          englishText={built.english}
+          language={language}
+          isSpeaking={isSpeaking}
+          onSpeak={() => onSpeak(introSpeechId, built.native)}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </>
   );
 };
