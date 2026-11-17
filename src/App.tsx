@@ -361,6 +361,7 @@ export function App() {
               onToggleLearned={handleToggleLearned}
               onToggleFavorite={handleToggleFavorite}
               onChangeThaiPolite={handleChangeThaiPolite}
+              onToast={setToastMsg}
             />
           )}
 

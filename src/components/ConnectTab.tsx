@@ -4,6 +4,7 @@ import {
   Check,
   Eye,
   Maximize2,
+  Mic,
   RotateCw,
   Search,
   Volume2,
@@ -17,7 +18,12 @@ import type {
   LanguageCode,
   ThaiPoliteForm,
 } from '../types';
-import { resolveThaiText } from '../utils/speech';
+import {
+  resolveThaiText,
+  startSpeechAssessment,
+  stopListening,
+  type SpeechAssessmentResult,
+} from '../utils/speech';
 import { ShowLocalModal } from './ShowLocalModal';
 
 interface ConnectTabProps {
@@ -28,6 +34,7 @@ interface ConnectTabProps {
   onToggleLearned: (phraseId: string) => void;
   onToggleFavorite: (phraseId: string) => void;
   onChangeThaiPolite: (form: ThaiPoliteForm) => void;
+  onToast: (msg: string) => void;
 }
 
 export const ConnectTab: React.FC<ConnectTabProps> = ({
@@ -38,6 +45,7 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
   onToggleLearned,
   onToggleFavorite,
   onChangeThaiPolite,
+  onToast,
 }) => {
   const [mode, setMode] = useState<'browse' | 'quiz'>('browse');
   const [selectedCategory, setSelectedCategory] = useState<
@@ -48,6 +56,12 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
   // Recall Quiz state
   const [quizIndex, setQuizIndex] = useState(0);
   const [quizRevealed, setQuizRevealed] = useState(false);
+
+  // Voice assessment state
+  const [listeningId, setListeningId] = useState<string | null>(null);
+  const [assessments, setAssessments] = useState<
+    Record<string, SpeechAssessmentResult>
+  >({});
 
   // Full-screen "Show to Local" modal state
   const [modalPhrase, setModalPhrase] = useState<{
@@ -113,6 +127,35 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
         }
     : null;
 
+  const handleAssessSpeech = (
+    phraseId: string,
+    expectedNative: string,
+    revealQuizOnResult = false
+  ) => {
+    if (listeningId === phraseId) {
+      stopListening();
+      setListeningId(null);
+      return;
+    }
+
+    startSpeechAssessment(language, expectedNative, {
+      onStart: () => setListeningId(phraseId),
+      onResult: (res) => {
+        setAssessments((prev) => ({ ...prev, [phraseId]: res }));
+        if (revealQuizOnResult) {
+          setQuizRevealed(true);
+        }
+        if (res.verdict === 'great' && !profile.learnedPhraseIds.includes(phraseId)) {
+          onToggleLearned(phraseId);
+        }
+      },
+      onError: (msg) => {
+        onToast(msg);
+      },
+      onEnd: () => setListeningId(null),
+    });
+  };
+
   const handleNextQuiz = (markLearned: boolean) => {
     if (
       markLearned &&
@@ -142,8 +185,8 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
           </h1>
           <p className="section-desc" style={{ fontSize: 12.5 }}>
             {mode === 'browse'
-              ? 'Tap to hear · Focus on warmth'
-              : 'Try saying it aloud, then reveal'}
+              ? 'Tap to listen · Tap Speak to test voice'
+              : 'Speak aloud or reveal to check'}
           </p>
         </div>
 
@@ -316,18 +359,67 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
             </p>
           </div>
 
-          {!quizRevealed ? (
-            <button
-              type="button"
-              className="primary-listen-btn"
-              onClick={() => {
-                setQuizRevealed(true);
-                onSpeak(currentQuizPhrase.id, currentQuizResolved.native);
-              }}
+          {assessments[currentQuizPhrase.id] && (
+            <div
+              className={`speak-result-box ${
+                assessments[currentQuizPhrase.id].verdict
+              }`}
             >
-              <Eye size={18} />
-              Reveal &amp; Listen
-            </button>
+              <strong>
+                {assessments[currentQuizPhrase.id].feedback} (
+                {assessments[currentQuizPhrase.id].score}% match)
+              </strong>
+              <span>
+                Heard: “{assessments[currentQuizPhrase.id].heard}”
+              </span>
+            </div>
+          )}
+
+          {!quizRevealed ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className="primary-listen-btn"
+                style={{
+                  flex: 1,
+                  background:
+                    listeningId === currentQuizPhrase.id
+                      ? 'var(--ink-primary)'
+                      : 'var(--accent-primary)',
+                }}
+                onClick={() =>
+                  handleAssessSpeech(
+                    currentQuizPhrase.id,
+                    currentQuizResolved.native,
+                    true
+                  )
+                }
+              >
+                <Mic size={18} />
+                {listeningId === currentQuizPhrase.id
+                  ? 'Listening...'
+                  : 'Speak to Answer'}
+              </button>
+              <button
+                type="button"
+                className="slot-pill"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  height: 48,
+                  padding: '0 16px',
+                }}
+                onClick={() => {
+                  setQuizRevealed(true);
+                  onSpeak(currentQuizPhrase.id, currentQuizResolved.native);
+                }}
+              >
+                <Eye size={16} />
+                Reveal
+              </button>
+            </div>
           ) : (
             <>
               <div className="recall-answer-box">
@@ -356,7 +448,7 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
                   }
                 >
                   <Volume2 size={16} />
-                  Hear Again
+                  Listen
                 </button>
                 <button
                   type="button"
@@ -369,10 +461,16 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
                     gap: 6,
                     height: 44,
                   }}
-                  onClick={() => handleNextQuiz(false)}
+                  onClick={() =>
+                    handleAssessSpeech(
+                      currentQuizPhrase.id,
+                      currentQuizResolved.native,
+                      true
+                    )
+                  }
                 >
-                  <RotateCw size={15} />
-                  Practice More
+                  <Mic size={15} />
+                  {listeningId === currentQuizPhrase.id ? 'Listening...' : 'Speak'}
                 </button>
                 <button
                   type="button"
@@ -385,9 +483,18 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
                   onClick={() => handleNextQuiz(true)}
                 >
                   <Check size={16} />
-                  Got It!
+                  Next
                 </button>
               </div>
+              <button
+                type="button"
+                className="slot-pill"
+                style={{ alignSelf: 'center', fontSize: 12 }}
+                onClick={() => handleNextQuiz(false)}
+              >
+                <RotateCw size={12} style={{ marginRight: 4 }} />
+                Skip without marking practiced
+              </button>
             </>
           )}
         </div>
@@ -421,8 +528,10 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
                     : { native: phrase.native, phonetic: phrase.phonetic };
 
                 const isSpeaking = speakingId === phrase.id;
+                const isListening = listeningId === phrase.id;
                 const isLearned = profile.learnedPhraseIds.includes(phrase.id);
                 const isFav = profile.favoritePhraseIds.includes(phrase.id);
+                const assessment = assessments[phrase.id];
 
                 return (
                   <article
@@ -457,9 +566,32 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
                       </span>
                     </button>
 
+                    {assessment && (
+                      <div className={`speak-result-box ${assessment.verdict}`}>
+                        <strong>
+                          {assessment.feedback} ({assessment.score}%)
+                        </strong>
+                        <span>Heard: “{assessment.heard}”</span>
+                      </div>
+                    )}
+
                     <div className="phrase-footer">
                       <span className="cultural-tip">{phrase.culturalTip}</span>
                       <div className="phrase-actions">
+                        <button
+                          type="button"
+                          className={`icon-action-btn ${
+                            isListening ? 'listening' : ''
+                          }`}
+                          onClick={() =>
+                            handleAssessSpeech(phrase.id, resolved.native)
+                          }
+                          aria-label="Speak to check pronunciation"
+                          title="Speak to check pronunciation"
+                        >
+                          <Mic size={13} />
+                          {isListening ? 'Listening' : 'Speak'}
+                        </button>
                         <button
                           type="button"
                           className="icon-action-btn"
@@ -490,7 +622,6 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
                             size={13}
                             fill={isFav ? 'currentColor' : 'none'}
                           />
-                          {isFav ? 'Saved' : 'Save'}
                         </button>
                         <button
                           type="button"
@@ -503,7 +634,6 @@ export const ConnectTab: React.FC<ConnectTabProps> = ({
                           }
                         >
                           <Check size={13} />
-                          {isLearned ? 'Practiced' : 'Got it'}
                         </button>
                       </div>
                     </div>

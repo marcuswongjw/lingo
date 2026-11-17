@@ -984,3 +984,39 @@ button {
   background: linear-gradient(to right, rgba(250, 248, 245, 0), var(--bg-shell));
 }
 
+/* Voice Assessment Mic & Feedback */
+.icon-action-btn.listening {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #FFFFFF;
+  animation: pulseSpeak 1s infinite ease-in-out;
+}
+
+.speak-result-box {
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: 12.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.speak-result-box.great {
+  background: var(--accent-sage-soft);
+  border: 1px solid rgba(46, 111, 94, 0.3);
+  color: var(--accent-sage);
+}
+
+.speak-result-box.close {
+  background: var(--accent-amber-soft);
+  border: 1px solid rgba(196, 125, 26, 0.3);
+  color: #8F580D;
+}
+
+.speak-result-box.retry {
+  background: var(--accent-primary-soft);
+  border: 1px solid rgba(200, 90, 50, 0.3);
+  color: var(--accent-primary);
+}
+
+
